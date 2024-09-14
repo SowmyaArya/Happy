@@ -1,0 +1,269 @@
+Name: Shradha
+Project title: tiles management system 
+Module description:
+
+The Tiles Management System consists of two main modules: Admin and User. Each module has specific functionalities tailored to its respective users.
+
+#### Admin Module
+
+1. *Login Page*
+   - Admins can log in securely using their credentials.
+
+2. *Manage Category* //done
+   - Admins can create, update, and delete product categories.
+
+3. *Manage Products* //done
+   - Admins can add new products, update existing product details, and remove products from the catalog.
+
+4. *Manage Orders* 
+   - Admins can view and update the status of orders, ensuring efficient order processing and tracking.
+
+5. *Feedback*
+   - Admins can view customer feedback and address any concerns or suggestions.
+
+6. *Reacting to Customer Feedback*
+   - Admins can respond to customer feedback to enhance customer satisfaction and resolve issues.
+
+7. *Blogs* //done
+   - Admins can create, edit, and manage blog posts related to tiles.
+
+8. *Generating Bill*
+   - Admins can generate and manage billing for orders, including creating invoices and handling payment records.
+
+#### User Module
+
+1. *Register Page* //done
+   - Users can create an account by registering with their details.
+
+2. *Login Page* //done
+   - Users can log in securely using their credentials.
+
+3. *View Products* //done
+   - Users can browse and view details of various tiles and related products.
+
+4. *Book Products* //done
+   - Users can book or purchase products and add them to their shopping cart.
+
+5. *Order Status*
+   - Users can check the status of their orders, from processing to delivery.
+
+6. *Feedback*
+   - Users can provide feedback on products and services, sharing their experiences and suggestions.
+
+7. *View Blogs* //done
+   - Users can read blog posts to gain insights and tips on tile usage and interior design.
+
+8. *View Bill with Download Option*
+   - Users can view their bill details and download invoices for their orders for record-keeping and reference.
+
+These modules work together to create a comprehensive system that streamlines the management and purchasing of tiles, ensuring a smooth experience for both administrators and customers.
+
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useParams } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+import { Paper, Stepper, Step, StepLabel, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import FeedbackIcon from '@mui/icons-material/Feedback';
+
+const ViewOrderStatus = () => {
+  const { userId } = useParams();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [feedback, setFeedback] = useState('');
+  const [thankYouMessage, setThankYouMessage] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false); // New state for feedback submission
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const response = await axios.get(`http://localhost:5002/api/Booking/getBookingsByUserId/${userId}`);
+        console.log('Bookings fetched:', response.data.bookings); // Debug: Log bookings data
+        setBookings(response.data.bookings);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        setError('Error fetching bookings');
+        setLoading(false);
+      }
+    };
+    fetchBookings();
+  }, [userId]);
+
+  useEffect(() => {
+    // Check if any booking has status "Delivered"
+    const deliveredBooking = bookings.some((booking) => booking.status === 'Delivered');
+    console.log('Delivered status check:', deliveredBooking); // Debug: Check if "Delivered" status is detected
+    setThankYouMessage(deliveredBooking);
+  }, [bookings]);
+
+  const handleFeedbackOpen = (booking) => {
+    setSelectedBooking(booking);
+    setFeedbackOpen(true);
+  };
+
+  const handleFeedbackClose = () => {
+    setFeedbackOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!selectedBooking) return;
+  
+    try {
+      const feedbackData = {
+        userId, // Assumes you have userId from useParams or context
+        orderId: selectedBooking._id,
+        productId: selectedBooking.productId, // Assuming each booking has a productId field
+        name,
+        email,
+        message: feedback
+      };
+  
+      const response = await axios.post('http://localhost:5002/api/Feedback/submit', feedbackData);
+  
+      if (response.status === 201) {
+        console.log('Feedback submitted successfully');
+        alert('Thank you for your feedback!'); // Show alert popup
+      } else {
+        console.error('Failed to submit feedback');
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+    } finally {
+      // Reset form and close dialog
+      setFeedbackOpen(false);
+      setSelectedBooking(null);
+      setName('');
+      setEmail('');
+      setFeedback('');
+    }
+  };
+  
+
+  if (loading) return <CircularProgress />;
+  if (error) return <Typography color="error">{error}</Typography>;
+
+  return (
+    <Box sx={{ width: '100%', padding: 2 }}>
+      <Typography variant="h4" gutterBottom>
+        Order Status
+      </Typography>
+      {thankYouMessage && !feedbackSubmitted && (
+        <Typography variant="h6" sx={{ color: 'green', marginBottom: 2 }}>
+          Thank you for ordering! We hope you enjoyed our service.
+        </Typography>
+      )}
+      {feedbackSubmitted && (
+        <Typography variant="h6" sx={{ color: 'green', marginBottom: 2 }}>
+          Thank you for your feedback!
+        </Typography>
+      )}
+      {bookings.length > 0 ? (
+        bookings.map((booking) => (
+          <Paper key={booking._id} sx={{ marginBottom: 2, padding: 2 }}>
+            <Typography variant="h6">{booking.name}</Typography>
+            <Typography variant="body2" color="textSecondary">
+              Order ID: {booking._id}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Address:{booking.address}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+             Quantity {booking.quantity} items - ₹{booking.amount.toFixed(2)}
+            </Typography>
+            <Stepper activeStep={getActiveStep(booking.status)} alternativeLabel>
+              {['Processing', 'Order Packed', 'Shipped', 'Delivered'].map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            <Typography variant="body1" sx={{ marginTop: 2, fontWeight: 'bold', color: 'green' }}>
+              Current Status: {booking.status}
+            </Typography>
+            {booking.status === 'Delivered' && (
+              <Box sx={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<FeedbackIcon />}
+                  onClick={() => handleFeedbackOpen(booking)}
+                >
+                  Give Feedback
+                </Button>
+              </Box>
+            )}
+          </Paper>
+        ))
+      ) : (
+        <Typography>No bookings found for this user.</Typography>
+      )}
+      <Dialog open={feedbackOpen} onClose={handleFeedbackClose}>
+        <DialogTitle>Feedback</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label="Email"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label="Feedback Message"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleFeedbackClose}>Cancel</Button>
+          <Button onClick={handleFeedbackSubmit}>Submit</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+const getActiveStep = (status) => {
+  switch (status) {
+    case 'Processing':
+      return 0;
+    case 'Order Packed':
+      return 1;
+    case 'Shipped':
+      return 2;
+    case 'Delivered':
+      return 3;
+    default:
+      return 0;
+  }
+};
+
+export default ViewOrderStatus;
